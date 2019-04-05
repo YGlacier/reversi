@@ -8,6 +8,10 @@
 namespace reversi
 {
 
+MiniMaxPlayer::MiniMaxPlayer(Side side) : Player(side){
+    initializeWeightedSquare();
+}
+
 CellPosition MiniMaxPlayer::thinkNextMove(const Board &board)
 {
 
@@ -21,12 +25,26 @@ CellPosition MiniMaxPlayer::thinkNextMove(const Board &board)
    return best_move;
 }
 
+/*
 //ディスク数で評価する評価関数
 int MiniMaxPlayer::evaluateFunction(const Board board)
 {
     return board.count(getOwnState(getSide()));
 }
+*/
 
+//weighted squaresを用いた評価関数
+int MiniMaxPlayer::evaluateFunction(const Board board)
+{
+    int count = board.count(getOwnState(getSide())) + board.count(getOwnState(getOpponentSide(getSide())));
+    int score;
+    if(count < end_game_threshold){
+        score = calculateWeightSquare(board);
+    }else if(count >= end_game_threshold){
+        score = calculateSimplecount(board);
+    }
+    return score;
+}
 /*
 //枝刈りなしのMax
 int MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &best_move)
@@ -189,8 +207,37 @@ void MiniMaxPlayer::addNodeCount(){
     node_count ++;
 }
 
+void MiniMaxPlayer::initializeWeightedSquare(){
 
+    std::cout << "initializing weighted squared\n";
 
+    weighted_squares[0] = {120, -20, 20, 5, 5, 20, -20, 120};
+    weighted_squares[1] = {-20, -40, -5, -5, -5, -5, -40, -20};
+    weighted_squares[2] = {20, -5, 15, 3, 3, 15, -5, 20};
+    weighted_squares[3] = {5, -5, 3, 3, 3, 3, -5, 5};
+    weighted_squares[4] = {5, -5, 3, 3, 3, 3, -5, 5};
+    weighted_squares[5] = {20, -5, 15, 3, 3, 15, -5, 20};
+    weighted_squares[6] = {-20, -40, -5, -5, -5, -5, -40, -20};
+    weighted_squares[7] = {120, -20, 20, 5, 5, 20, -20, 120};
+}
+
+int MiniMaxPlayer::calculateWeightSquare(const Board board)
+{
+    int score = 0;
+    for(int i = 0 ; i < Board::WIDTH; i++){//i -> a-h
+        for(int j = 0; j<Board::HEIGHT; j++){// j -> 1-8
+            CellPosition position = {i,j};
+            if(board.get(position) == getOwnState(getSide())){
+                score += weighted_squares[j][i];
+            }
+        }
+    }
+    return score;
+}
+
+int MiniMaxPlayer::calculateSimplecount(const Board board){
+     return board.count(getOwnState(getSide()));
+}
 
 Board updateBoard(const Board &board, CellPosition position, Side side)
 {

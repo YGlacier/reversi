@@ -80,6 +80,7 @@ def main() -> None:
     with open(args.file, 'rb') as f:
         f.readinto(h)
         print(h.century, h.year, h.month, h.day, h.num_games, h.num_contest, h.year2)
+        print("Total game number : " + str(h.num_games))
         for i in range(h.num_games):
             t = WthorStructure()
             f.readinto(t)
