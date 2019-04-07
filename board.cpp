@@ -127,6 +127,7 @@ Board::Board() : m_states()
 	set({3, 4}, CellState::BLACK);
 	set({4, 3}, CellState::BLACK);
 	set({4, 4}, CellState::WHITE);
+    //updateLegalMoves();
 }
 
 CellState Board::get(const CellPosition position) const
@@ -184,6 +185,7 @@ void Board::placeDisk(const CellPosition position, const Side side)
 		}
 	}
 	set(position, getOwnState(side));
+	//updateLegalMoves();
 }
 
 int Board::count(const CellState target) const
@@ -208,6 +210,24 @@ bool Board::boundsCheck(CellPosition position)
 	}
 	return false;
 }
+
+/*
+void Board::updateLegalMoves(){
+	black_Legal_moves = calculateAllLegalMoves(Side::BLACK);
+	white_legal_moves = calculateAllLegalMoves(Side::WHITE);
+}
+*/
+
+/*
+std::vector<CellPosition> Board::getAllLegalMoves(Side side) const 
+{
+	if(side == Side::BLACK){
+		return black_Legal_moves;
+	}else{
+		return white_legal_moves;
+	}
+}
+*/
 
 std::ostream& operator<<(std::ostream& os, const Board& board)
 {

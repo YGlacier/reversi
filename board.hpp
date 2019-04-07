@@ -56,8 +56,14 @@ public:
 
 	static bool boundsCheck(CellPosition position);
 
+	void updateLegalMoves();
+
+	//std::vector<CellPosition> getAllLegalMoves(Side side) const;
+
 private:
 	std::array<std::array<CellState, WIDTH>, HEIGHT> m_states;
+	std::vector<CellPosition> black_Legal_moves;
+	std::vector<CellPosition> white_legal_moves;
 };
 
 std::ostream& operator<<(std::ostream& os, const Board& board);

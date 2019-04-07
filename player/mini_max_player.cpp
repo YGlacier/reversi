@@ -2,6 +2,8 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <ctime>
+#include <chrono>
 
 #include "mini_max_player.hpp"
 
@@ -10,19 +12,24 @@ namespace reversi
 
 MiniMaxPlayer::MiniMaxPlayer(Side side) : Player(side){
     initializeWeightedSquare();
+    initializeGamePhaseBoarder();
+    initializeWeights();
 }
 
 CellPosition MiniMaxPlayer::thinkNextMove(const Board &board)
 {
-
+    auto t_start = std::chrono::system_clock::now(); 
     setNodeCount(0);
-   CellPosition best_move;
-   int alpha = -(int)INFINITY;
-   int beta = (int)INFINITY;
+    CellPosition best_move;
+    float alpha = -(float)INFINITY;
+    float beta = (float)INFINITY;
+    setTurnNumber(board.count(getOwnState(getSide())) + board.count(getOwnState(getOpponentSide(getSide()))));
 
-   int score = maxNode(board,1,max_depth,best_move,alpha,beta);
-   std::cout << "best score : " << score << " , nodes explored : " << getNodeCount() <<  "\n";
-   return best_move;
+    float score = maxNode(board,1,max_depth,best_move,alpha,beta);
+    auto t_end = std::chrono::system_clock::now();
+    std::cout << "best score : " << score << " , nodes explored : " << getNodeCount() <<  "\n";
+    std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count() << " ms\n";
+    return best_move;
 }
 
 /*
@@ -34,15 +41,10 @@ int MiniMaxPlayer::evaluateFunction(const Board board)
 */
 
 //weighted squaresを用いた評価関数
-int MiniMaxPlayer::evaluateFunction(const Board board)
+float MiniMaxPlayer::evaluateFunction(const Board board)
 {
-    int count = board.count(getOwnState(getSide())) + board.count(getOwnState(getOpponentSide(getSide())));
-    int score;
-    if(count < end_game_threshold){
-        score = calculateWeightSquare(board);
-    }else if(count >= end_game_threshold){
-        score = calculateSimplecount(board);
-    }
+    float score;
+    score = calculateWeightSquare(board) * weights[getGamePhase(getTurnNumber())][0] /*+ calculateMobility(board)*/;
     return score;
 }
 /*
@@ -114,7 +116,7 @@ int MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition &
 */
 
 //枝刈りありのMax
-int MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &best_move,int alpha, int beta)
+float MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &best_move,float alpha, float beta)
 {
     addNodeCount();
     //std::cout << "Enter max Node, depth = " << depth << "\n";
@@ -123,17 +125,20 @@ int MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &
         return evaluateFunction(board);
     }   
 
-    int best_score = -(int)INFINITY;
     std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
+    std::vector<CellPosition> opponent_legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
 
     if(legal_moves.empty()){
         return evaluateFunction(board);
     }
 
-    std::vector<int> scores;
+    std::vector<float> scores;
     for(CellPosition move : legal_moves){
         Board new_board = updateBoard(board,move,getSide());
-        int v = minNode(new_board,depth + 1,max_depth,best_move,alpha,beta);
+        float v = minNode(new_board,depth + 1,max_depth,best_move,alpha,beta);
+
+        v = v + ((float)legal_moves.size() - (float)opponent_legal_moves.size()) * weights[getGamePhase(getTurnNumber())][1];//mobility
+
         scores.push_back(v);
 
         if(v > alpha){
@@ -156,7 +161,7 @@ int MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &
 }
 
 //枝刈りありのMini
-int MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition &best_move,int alpha, int beta)
+float MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition &best_move,float alpha, float beta)
 {
     addNodeCount();
     //std::cout << "Enter min Node, depth = " << depth << "\n";
@@ -165,17 +170,20 @@ int MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition &
         return evaluateFunction(board);
     }
 
-    int worst_score = (int)INFINITY;
-    std::vector<CellPosition> legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
+    std::vector<CellPosition> opponent_legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
+    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
 
-    if(legal_moves.empty()){
+    if(opponent_legal_moves.empty()){
         return evaluateFunction(board);
     }
 
-    std::vector<int> scores;
-    for(CellPosition move : legal_moves){
+    std::vector<float> scores;
+    for(CellPosition move : opponent_legal_moves){
         Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
-        int v = maxNode(new_board,depth+1,max_depth,best_move,alpha,beta);
+        float v = maxNode(new_board,depth+1,max_depth,best_move,alpha,beta);
+
+        v = v + ((float)legal_moves.size() - (float)opponent_legal_moves.size()) * weights[getGamePhase(getTurnNumber())][1];//mobility
+
         scores.push_back(v);
 
         if(v < beta){
@@ -209,7 +217,7 @@ void MiniMaxPlayer::addNodeCount(){
 
 void MiniMaxPlayer::initializeWeightedSquare(){
 
-    std::cout << "initializing weighted squared\n";
+    //std::cout << "initializing weighted squared\n";
 
     weighted_squares[0] = {120, -20, 20, 5, 5, 20, -20, 120};
     weighted_squares[1] = {-20, -40, -5, -5, -5, -5, -40, -20};
@@ -219,11 +227,13 @@ void MiniMaxPlayer::initializeWeightedSquare(){
     weighted_squares[5] = {20, -5, 15, 3, 3, 15, -5, 20};
     weighted_squares[6] = {-20, -40, -5, -5, -5, -5, -40, -20};
     weighted_squares[7] = {120, -20, 20, 5, 5, 20, -20, 120};
+
+    //sum = 376;
 }
 
-int MiniMaxPlayer::calculateWeightSquare(const Board board)
+float MiniMaxPlayer::calculateWeightSquare(const Board board)
 {
-    int score = 0;
+    float score = 0;
     for(int i = 0 ; i < Board::WIDTH; i++){//i -> a-h
         for(int j = 0; j<Board::HEIGHT; j++){// j -> 1-8
             CellPosition position = {i,j};
@@ -235,8 +245,74 @@ int MiniMaxPlayer::calculateWeightSquare(const Board board)
     return score;
 }
 
-int MiniMaxPlayer::calculateSimplecount(const Board board){
-     return board.count(getOwnState(getSide()));
+float MiniMaxPlayer::calculateSimplecount(const Board board)
+{
+     return (float)board.count(getOwnState(getSide()))/(float)64.0;
+}
+
+float MiniMaxPlayer::calculateSelfMobility(const Board board)
+{
+    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
+    return (float)legal_moves.size()/(float)64.0;
+}
+
+float MiniMaxPlayer::calculateOpponentMobility(const Board board)
+{
+    std::vector<CellPosition> oppoenet_legal_moves = board.getAllLegalMoves(getOpponentSide(getSide()));
+    return (float)oppoenet_legal_moves.size()/(float)64.0;
+}
+
+float MiniMaxPlayer::calculateMobility(const Board board)
+{
+    return calculateSelfMobility(board) - calculateOpponentMobility(board);
+}
+
+void MiniMaxPlayer::initializeGamePhaseBoarder(){
+    game_phase_boarder = {0, 12, 50, 64};
+}
+
+void MiniMaxPlayer::initializeWeights(){
+    //{weighted squares, mobility, }
+    weights[0] = {(float)0.333, (float)0.333, (float)0.333};
+    weights[1] = {(float)0.333, (float)0.333, (float)0.333};
+    weights[2] = {(float)0.333, (float)0.333, (float)0.333};
+}
+
+void MiniMaxPlayer::setTurnNumber(int turn){
+    turn_number = turn;
+}
+
+int MiniMaxPlayer::getTurnNumber(){
+    return turn_number;
+}
+
+int MiniMaxPlayer::getGamePhase(int turn){
+    for(int i = 0 ; i < MiniMaxPlayer::game_phase; i++){
+        if( turn > game_phase_boarder[i] && turn <= game_phase_boarder[i+1]){
+            return i;
+        }
+    }
+
+    return 0;//Warning 処理、ここに来ることがない
+}
+
+bool MiniMaxPlayer::endGameSearch(const Board board,Side side){
+    std::vector<CellPosition> opponent_legal_moves = board.getAllLegalMoves(getOpponentSide(getSide()));
+    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
+
+    bool canWin = true;
+    if(side == getSide()){
+        for(CellPosition move : legal_moves){
+            Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
+            canWin = canWin && endGameSearch(new_board,getOpponentSide(getSide()));
+        }
+    }else{
+        for(CellPosition move : opponent_legal_moves){
+            Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
+            canWin = canWin && endGameSearch(new_board,getSide());
+        }
+    }
+    return canWin;
 }
 
 Board updateBoard(const Board &board, CellPosition position, Side side)
