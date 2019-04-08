@@ -9,7 +9,7 @@ namespace reversi
 class SampleComputerPlayer : public Player
 {
 public:
-	SampleComputerPlayer(Side side) : Player(side) {}
+	SampleComputerPlayer(Side side);
 
 	virtual CellPosition thinkNextMove(const Board& board) override;
 };

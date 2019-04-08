@@ -10,6 +10,8 @@ add_executable(reversi
     player/human_player.cpp
     player/sample_computer_player.cpp
     player/mini_max_player.cpp
+    player/mini_max_player_1.cpp
+    player/mini_max_player_2.cpp
     option_parser.cpp)
 
 target_include_directories(reversi PRIVATE .)

@@ -48,7 +48,8 @@ public:
 	void set(CellPosition position, CellState state);
 
 	bool isLegalMove(CellPosition position, Side side) const;
-	std::vector<CellPosition> getAllLegalMoves(Side side) const;
+	//std::vector<CellPosition> getAllLegalMoves(Side side) const;
+	std::vector<CellPosition> calculateAllLegalMoves(Side side) const;
 
 	void placeDisk(CellPosition position, Side side);
 
@@ -58,7 +59,13 @@ public:
 
 	void updateLegalMoves();
 
-	//std::vector<CellPosition> getAllLegalMoves(Side side) const;
+	std::vector<CellPosition> getAllLegalMoves(Side side) const;
+
+	bool checkGameEnd() const;
+
+	CellState getWinner() const;
+
+	int getTurnNumber() const;
 
 private:
 	std::array<std::array<CellState, WIDTH>, HEIGHT> m_states;
@@ -67,5 +74,7 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& os, const Board& board);
+
+Board updateBoard(const Board& board, CellPosition position, Side side);
 
 }  // namespace reversi

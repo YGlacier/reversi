@@ -35,6 +35,8 @@
         "utility": "cpp",
         "ctime": "cpp",
         "chrono": "cpp",
-        "ratio": "cpp"
+        "ratio": "cpp",
+        "functional": "cpp",
+        "memory": "cpp"
     }
 }

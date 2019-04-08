@@ -14,6 +14,8 @@
 #include "player/human_player.hpp"
 #include "player/sample_computer_player.hpp"
 #include "player/mini_max_player.hpp"
+#include "player/mini_max_player_1.hpp"
+#include "player/mini_max_player_2.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -22,7 +24,9 @@ int main(int argc, char* argv[])
 	const std::unordered_map<std::string, std::function<std::unique_ptr<Player>(Side)>> player_types = {
 	    {"human", [](Side side) { return std::make_unique<HumanPlayer>(side); }},
 	    {"sample", [](Side side) { return std::make_unique<SampleComputerPlayer>(side); }},
-			{"minimax",[](Side side) { return std::make_unique<MiniMaxPlayer>(side); }}
+			{"minimax",[](Side side) { return std::make_unique<MiniMaxPlayer>(side); }},
+			{"minimax1",[](Side side) { return std::make_unique<MiniMaxPlayer1>(side); }},
+			{"minimax2",[](Side side) { return std::make_unique<MiniMaxPlayer2>(side); }}
 	};
 
 	auto command_line_params = parseCommandLineOptions(argc, argv, player_types);

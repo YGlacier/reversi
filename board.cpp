@@ -127,7 +127,7 @@ Board::Board() : m_states()
 	set({3, 4}, CellState::BLACK);
 	set({4, 3}, CellState::BLACK);
 	set({4, 4}, CellState::WHITE);
-    //updateLegalMoves();
+	updateLegalMoves();
 }
 
 CellState Board::get(const CellPosition position) const
@@ -158,7 +158,7 @@ bool Board::isLegalMove(const CellPosition position, const Side side) const
 	return false;
 }
 
-std::vector<CellPosition> Board::getAllLegalMoves(const Side side) const
+std::vector<CellPosition> Board::calculateAllLegalMoves(const Side side) const
 {
 	std::vector<CellPosition> legal_moves;
 	for (int y = 0; y < HEIGHT; ++y) {
@@ -185,7 +185,7 @@ void Board::placeDisk(const CellPosition position, const Side side)
 		}
 	}
 	set(position, getOwnState(side));
-	//updateLegalMoves();
+	updateLegalMoves();
 }
 
 int Board::count(const CellState target) const
@@ -211,14 +211,18 @@ bool Board::boundsCheck(CellPosition position)
 	return false;
 }
 
-/*
+
 void Board::updateLegalMoves(){
 	black_Legal_moves = calculateAllLegalMoves(Side::BLACK);
 	white_legal_moves = calculateAllLegalMoves(Side::WHITE);
 }
-*/
 
-/*
+int Board::getTurnNumber() const
+{
+	return (int)black_Legal_moves.size() + (int)white_legal_moves.size();
+}
+
+
 std::vector<CellPosition> Board::getAllLegalMoves(Side side) const 
 {
 	if(side == Side::BLACK){
@@ -227,7 +231,27 @@ std::vector<CellPosition> Board::getAllLegalMoves(Side side) const
 		return white_legal_moves;
 	}
 }
-*/
+
+bool Board::checkGameEnd() const
+{
+	if((int)black_Legal_moves.size() == 0 && (int)white_legal_moves.size() == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+CellState Board::getWinner() const
+{
+	int black_disc_num = count(CellState::BLACK);
+	int white_disc_num = count(CellState::WHITE);
+	if(black_disc_num > white_disc_num){
+		return CellState::BLACK;
+	}else{
+		return CellState::WHITE;
+	}
+}
+
 
 std::ostream& operator<<(std::ostream& os, const Board& board)
 {
@@ -252,6 +276,14 @@ std::ostream& operator<<(std::ostream& os, const Board& board)
 		}
 	}
 	return os;
+}
+
+
+Board updateBoard(const Board &board, CellPosition position, Side side)
+{
+    Board new_board = board;
+    new_board.placeDisk(position, side);
+    return new_board;
 }
 
 }  // namespace reversi

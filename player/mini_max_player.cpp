@@ -4,6 +4,7 @@
 #include <cmath>
 #include <ctime>
 #include <chrono>
+#include <numeric>
 
 #include "mini_max_player.hpp"
 
@@ -18,17 +19,39 @@ MiniMaxPlayer::MiniMaxPlayer(Side side) : Player(side){
 
 CellPosition MiniMaxPlayer::thinkNextMove(const Board &board)
 {
-    auto t_start = std::chrono::system_clock::now(); 
+    setStartTime();
     setNodeCount(0);
+    setTurnNumber(board.count(getOwnState(getSide())) + board.count(getOwnState(getOpponentSide(getSide()))));
+    setMaxDepth();
+
+    std::cout << "Turn : " << getTurnNumber() << "\n";
+
     CellPosition best_move;
     float alpha = -(float)INFINITY;
     float beta = (float)INFINITY;
-    setTurnNumber(board.count(getOwnState(getSide())) + board.count(getOwnState(getOpponentSide(getSide()))));
+
+    int root_legal_moves_count = (int)board.getAllLegalMoves(getSide()).size();
+
+    //確勝ルートがあるかどうかを探す
+    setEndSearchNodeCount(0);
+    if(getTurnNumber() > end_game_search_start_turn && root_legal_moves_count <= end_game_search_max_root_node){
+        std::cout << "Root legal moves count : " << root_legal_moves_count << "\n";
+        auto end_game_search_start = std::chrono::system_clock::now();
+        if(endGameSearch(board,best_move)){
+            auto t_end = std::chrono::system_clock::now();
+            std::cout << "Time for end-game-search : " << std::chrono::duration_cast<std::chrono::milliseconds>(t_end - end_game_search_start).count() << " ms\n";
+            std::cout << "End-game-search Node : " << getEndSearchNodeCount() << "\n";
+            std::cout << "Time : " << getSearchTimeMiniSec() << " ms\n";
+            return best_move;
+        }
+        auto t_end = std::chrono::system_clock::now();
+        std::cout << "Time for end-game-search : " << std::chrono::duration_cast<std::chrono::milliseconds>(t_end - end_game_search_start).count() << " ms\n";
+        std::cout << "End-game-search Node : " << getEndSearchNodeCount() << "\n";
+    }
 
     float score = maxNode(board,1,max_depth,best_move,alpha,beta);
-    auto t_end = std::chrono::system_clock::now();
     std::cout << "best score : " << score << " , nodes explored : " << getNodeCount() <<  "\n";
-    std::cout << "Time : " << std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count() << " ms\n";
+    std::cout << "Time : " << getSearchTimeMiniSec() << " ms\n";
     return best_move;
 }
 
@@ -44,100 +67,113 @@ int MiniMaxPlayer::evaluateFunction(const Board board)
 float MiniMaxPlayer::evaluateFunction(const Board board)
 {
     float score;
-    score = calculateWeightSquare(board) * weights[getGamePhase(getTurnNumber())][0] /*+ calculateMobility(board)*/;
+    score = calculateWeightSquare(board) * weights[getGamePhase(board.getTurnNumber())][0];
+    score += calculateMobility(board) * weights[getGamePhase(board.getTurnNumber())][1];
+    score += calculateSimplecount(board) * weights[getGamePhase(board.getTurnNumber())][2];
     return score;
 }
-/*
-//枝刈りなしのMax
-int MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &best_move)
-{
-    addNodeCount();
-    //std::cout << "Enter max Node, depth = " << depth << "\n";
-
-    if (depth == max_depth){
-        return evaluateFunction(board);
-    }   
-
-    int best_score = -(int)INFINITY;
-    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
-
-    if(legal_moves.empty()){
-        return evaluateFunction(board);
-    }
-
-    std::vector<int> scores;
-    for(CellPosition move : legal_moves){
-        Board new_board = updateBoard(board,move,getSide());
-        int v = minNode(new_board,depth + 1,max_depth,best_move);
-        scores.push_back(v);
-    }
-
-    best_move = legal_moves[std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()))];
-    best_score = scores[std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()))];
-    
-    //std::cout << "in max Node, depth = " << depth;
-    //std::cout << ", best score = " << best_score << ", best move = " << best_move << "\n";
-
-    return best_score;
-    
-}
-
-//枝刈りなしのMini
-int MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition &best_move)
-{
-    addNodeCount();
-    //std::cout << "Enter min Node, depth = " << depth << "\n";
-
-    if(depth == max_depth){
-        return evaluateFunction(board);
-    }
-
-    int worst_score = (int)INFINITY;
-    std::vector<CellPosition> legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
-
-    if(legal_moves.empty()){
-        return evaluateFunction(board);
-    }
-
-    std::vector<int> scores;
-    for(CellPosition move : legal_moves){
-        Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
-        int v = maxNode(new_board,depth+1,max_depth,best_move);
-        scores.push_back(v);
-    }
-
-    worst_score = scores[std::distance(scores.begin(), std::min_element(scores.begin(), scores.end()))];
-
-    //std::cout << "in max Node, depth = " << depth;
-    //std::cout << ", worst score = " << worst_score << "\n";
-
-    return worst_score;
-}
-*/
 
 //枝刈りありのMax
 float MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition &best_move,float alpha, float beta)
 {
     addNodeCount();
-    //std::cout << "Enter max Node, depth = " << depth << "\n";
 
-    if (depth == max_depth){
-        return evaluateFunction(board);
-    }   
+    /*
+    if(getSearchTimeMiniSec() > max_time){
+        return alpha;
+    }
+    */
 
     std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
     std::vector<CellPosition> opponent_legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
+
+    if (depth == max_depth){
+        return evaluateFunction(board);
+    }
 
     if(legal_moves.empty()){
         return evaluateFunction(board);
     }
 
     std::vector<float> scores;
+
+    //浅く探索
+    if(depth == 1){
+        std::cout << "Shallow search\n";
+        std::vector<float> shallow_search_scores;
+        for(CellPosition move : legal_moves){
+            if(getSearchTimeMiniSec() > max_time){
+                break;
+            }
+            Board new_board = updateBoard(board,move,getSide());
+            float v = shallowMinNode(new_board,1,shallow_search_depth,best_move,alpha,beta);
+
+            shallow_search_scores.push_back(v);
+        }
+
+        std::vector<size_t> indices(shallow_search_scores.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        std::sort(indices.begin(), indices.end(), [&shallow_search_scores](size_t i1, size_t i2) {
+            return shallow_search_scores[i1] > shallow_search_scores[i2];
+        });
+        std::vector<CellPosition> new_legal_moves_array;
+        for(size_t index : indices){
+            new_legal_moves_array.push_back(legal_moves[index]);
+            std::cout << legal_moves[index] << " : " << shallow_search_scores[index] << " ";
+        }
+        std::cout << "\n";
+        legal_moves = new_legal_moves_array;
+    }
+
     for(CellPosition move : legal_moves){
+        if(getSearchTimeMiniSec() > max_time && depth == 1){
+            break;
+        }
         Board new_board = updateBoard(board,move,getSide());
         float v = minNode(new_board,depth + 1,max_depth,best_move,alpha,beta);
 
-        v = v + ((float)legal_moves.size() - (float)opponent_legal_moves.size()) * weights[getGamePhase(getTurnNumber())][1];//mobility
+        scores.push_back(v);
+
+        if(v > alpha){
+            alpha = v;
+            if(alpha >= beta) {
+                break;
+            }
+        }
+    }
+
+    if(depth == 1){
+        for(int i = 0 ; i < (int)scores.size() ; i++){
+            std::cout << legal_moves[i] << " : " << scores[i] << " ";
+        }
+        std::cout << "\n";
+    }
+
+    best_move = legal_moves[std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()))];
+
+    return alpha;
+    
+}
+
+float MiniMaxPlayer::shallowMaxNode(Board board, int depth, int max_depth, CellPosition &best_move,float alpha, float beta)
+{
+    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
+    std::vector<CellPosition> opponent_legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
+
+    if (depth == max_depth){
+        return evaluateFunction(board);
+    }
+
+    if(legal_moves.empty()){
+        return evaluateFunction(board);
+    }
+
+    std::vector<float> scores;
+
+    for(CellPosition move : legal_moves){
+        Board new_board = updateBoard(board,move,getSide());
+        float v = shallowMinNode(new_board,depth + 1,max_depth,best_move,alpha,beta);
 
         scores.push_back(v);
 
@@ -150,12 +186,7 @@ float MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition
     }
 
     best_move = legal_moves[std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()))];
-    //best_score = scores[std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()))];
-    
-    //std::cout << "in max Node, depth = " << depth;
-    //std::cout << ", best score = " << best_score << ", best move = " << best_move << "\n";
 
-    //return best_score;
     return alpha;
     
 }
@@ -163,15 +194,62 @@ float MiniMaxPlayer::maxNode(Board board, int depth, int max_depth, CellPosition
 //枝刈りありのMini
 float MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition &best_move,float alpha, float beta)
 {
+    /*
+    if(getSearchTimeMiniSec() > max_time){
+        return beta;
+    }
+    */
     addNodeCount();
-    //std::cout << "Enter min Node, depth = " << depth << "\n";
+
+    std::vector<CellPosition> opponent_legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
+    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
 
     if(depth == max_depth){
         return evaluateFunction(board);
     }
 
+    if(opponent_legal_moves.empty()){
+        return evaluateFunction(board);
+    }
+
+    std::vector<float> scores;
+    std::vector<float> shallow_search_scores;
+
+    for(CellPosition move : opponent_legal_moves){
+        /*
+        if(getSearchTimeMiniSec() > max_time){
+            break;
+        }
+        */
+        Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
+        float v = maxNode(new_board,depth+1,max_depth,best_move,alpha,beta);
+
+        scores.push_back(v);
+
+        if(v < beta){
+            beta = v;
+            if(alpha >= beta){
+                break;
+            }
+        }
+    }
+
+    return beta;
+}
+
+float MiniMaxPlayer::shallowMinNode(Board board, int depth, int max_depth, CellPosition &best_move,float alpha, float beta)
+{
+    if(getSearchTimeMiniSec() > max_time){
+        return beta;
+    }
+    addNodeCount();
+
     std::vector<CellPosition> opponent_legal_moves=board.getAllLegalMoves(getOpponentSide(getSide()));
     std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
+
+    if(depth == max_depth){
+        return evaluateFunction(board);
+    }
 
     if(opponent_legal_moves.empty()){
         return evaluateFunction(board);
@@ -179,10 +257,11 @@ float MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition
 
     std::vector<float> scores;
     for(CellPosition move : opponent_legal_moves){
+        if(getSearchTimeMiniSec() > max_time){
+            break;
+        }
         Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
-        float v = maxNode(new_board,depth+1,max_depth,best_move,alpha,beta);
-
-        v = v + ((float)legal_moves.size() - (float)opponent_legal_moves.size()) * weights[getGamePhase(getTurnNumber())][1];//mobility
+        float v = shallowMaxNode(new_board,depth+1,max_depth,best_move,alpha,beta);
 
         scores.push_back(v);
 
@@ -194,12 +273,6 @@ float MiniMaxPlayer::minNode(Board board, int depth, int max_depth, CellPosition
         }
     }
 
-    //worst_score = scores[std::distance(scores.begin(), std::min_element(scores.begin(), scores.end()))];
-
-    //std::cout << "in max Node, depth = " << depth;
-    //std::cout << ", worst score = " << worst_score << "\n";
-
-    //return worst_score;
     return beta;
 }
 
@@ -216,8 +289,6 @@ void MiniMaxPlayer::addNodeCount(){
 }
 
 void MiniMaxPlayer::initializeWeightedSquare(){
-
-    //std::cout << "initializing weighted squared\n";
 
     weighted_squares[0] = {120, -20, 20, 5, 5, 20, -20, 120};
     weighted_squares[1] = {-20, -40, -5, -5, -5, -5, -40, -20};
@@ -247,35 +318,30 @@ float MiniMaxPlayer::calculateWeightSquare(const Board board)
 
 float MiniMaxPlayer::calculateSimplecount(const Board board)
 {
-     return (float)board.count(getOwnState(getSide()))/(float)64.0;
+     return (float)board.count(getOwnState(getSide()));
 }
-
-float MiniMaxPlayer::calculateSelfMobility(const Board board)
+/*
+float MiniMaxPlayer::calculateMobility(std::vector<CellPosition>& opponent_legal_moves, std::vector<CellPosition>& legal_moves)
 {
-    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
-    return (float)legal_moves.size()/(float)64.0;
+    return ((float)legal_moves.size() - (float)opponent_legal_moves.size()) * weights[getGamePhase(getTurnNumber())][1];
 }
+*/
 
-float MiniMaxPlayer::calculateOpponentMobility(const Board board)
-{
-    std::vector<CellPosition> oppoenet_legal_moves = board.getAllLegalMoves(getOpponentSide(getSide()));
-    return (float)oppoenet_legal_moves.size()/(float)64.0;
-}
-
-float MiniMaxPlayer::calculateMobility(const Board board)
-{
-    return calculateSelfMobility(board) - calculateOpponentMobility(board);
+float MiniMaxPlayer::calculateMobility(const Board board){
+    return (float)board.getAllLegalMoves(getSide()).size() - (float)board.getAllLegalMoves(getOpponentSide(getSide())).size();
 }
 
 void MiniMaxPlayer::initializeGamePhaseBoarder(){
-    game_phase_boarder = {0, 12, 50, 64};
+    game_phase_boarder = {0, 12, 36, 50, 58, 64};
 }
 
 void MiniMaxPlayer::initializeWeights(){
-    //{weighted squares, mobility, }
-    weights[0] = {(float)0.333, (float)0.333, (float)0.333};
-    weights[1] = {(float)0.333, (float)0.333, (float)0.333};
-    weights[2] = {(float)0.333, (float)0.333, (float)0.333};
+    //{weighted squares, mobility, simple count}
+    weights[0] = {(float)1.0, (float)10, (float)0.0};
+    weights[1] = {(float)1.0, (float)8, (float)0.0};
+    weights[2] = {(float)1.0, (float)6, (float)0.0};
+    weights[3] = {(float)1.0, (float)6, (float)0.0};
+    weights[4] = {(float)1.0, (float)6, (float)5.0};
 }
 
 void MiniMaxPlayer::setTurnNumber(int turn){
@@ -296,30 +362,86 @@ int MiniMaxPlayer::getGamePhase(int turn){
     return 0;//Warning 処理、ここに来ることがない
 }
 
-bool MiniMaxPlayer::endGameSearch(const Board board,Side side){
+bool MiniMaxPlayer::endGameSearchNode(const Board board,Side side){
+    addEndSearchNodeCount();
+
+    if(board.checkGameEnd()){
+        if(board.getWinner() == getOwnState(getSide())){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
     std::vector<CellPosition> opponent_legal_moves = board.getAllLegalMoves(getOpponentSide(getSide()));
     std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
 
     bool canWin = true;
     if(side == getSide()){
+        if((int)legal_moves.size() == 0){
+            canWin = canWin && endGameSearchNode(board,getOpponentSide(getSide()));
+        }
         for(CellPosition move : legal_moves){
-            Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
-            canWin = canWin && endGameSearch(new_board,getOpponentSide(getSide()));
+            Board new_board = updateBoard(board, move, getSide());
+            canWin = canWin && endGameSearchNode(new_board,getOpponentSide(getSide()));
         }
     }else{
+        if((int)opponent_legal_moves.size() == 0){
+            canWin = canWin && endGameSearchNode(board,getSide());
+        }
         for(CellPosition move : opponent_legal_moves){
             Board new_board = updateBoard(board, move, getOpponentSide(getSide()));
-            canWin = canWin && endGameSearch(new_board,getSide());
+            canWin = canWin && endGameSearchNode(new_board,getSide());
         }
     }
     return canWin;
 }
 
-Board updateBoard(const Board &board, CellPosition position, Side side)
+bool MiniMaxPlayer::endGameSearch(const Board board, CellPosition& best_move)
 {
-    Board new_board = board;
-    new_board.placeDisk(position, side);
-    return new_board;
+    std::cout << "In endGameSearch(), Turn :: " << getTurnNumber() << "\n"; 
+    std::vector<CellPosition> legal_moves = board.getAllLegalMoves(getSide());
+    for(CellPosition move : legal_moves){
+        if(endGameSearchNode(updateBoard(board,move,getSide()),getOpponentSide(getSide()))){
+            best_move = move;
+            std::cout << "Found Win Route\n";
+            return true;
+        }
+    }
+    return false;
+}
+
+int MiniMaxPlayer::getSearchTimeMiniSec()
+{
+    std::chrono::system_clock::time_point end_time = std::chrono::system_clock::now();
+    return (int)std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+}
+
+void MiniMaxPlayer::setStartTime()
+{
+    start_time = std::chrono::system_clock::now();
+}
+
+void MiniMaxPlayer::setEndSearchNodeCount(int count){
+    end_search_node_count = count;
+}
+
+int MiniMaxPlayer::getEndSearchNodeCount(){
+    return end_search_node_count;
+}
+
+void MiniMaxPlayer::addEndSearchNodeCount(){
+    end_search_node_count++;
+}
+
+void MiniMaxPlayer::setMaxDepth(){
+    if(getTurnNumber() > 0 && getTurnNumber() <= 7){
+        max_depth = 9;
+    }else if(getTurnNumber() > 7 && getTurnNumber() <=36){
+        max_depth = 7;
+    }else if(getTurnNumber() > 36){
+        max_depth = 7;
+    }
 }
 
 } // namespace reversi
