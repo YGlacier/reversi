@@ -16,6 +16,7 @@
 #include "player/mini_max_player.hpp"
 #include "player/mini_max_player_1.hpp"
 #include "player/mini_max_player_2.hpp"
+#include "player/mini_max_player_3.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -26,7 +27,8 @@ int main(int argc, char* argv[])
 	    {"sample", [](Side side) { return std::make_unique<SampleComputerPlayer>(side); }},
 			{"minimax",[](Side side) { return std::make_unique<MiniMaxPlayer>(side); }},
 			{"minimax1",[](Side side) { return std::make_unique<MiniMaxPlayer1>(side); }},
-			{"minimax2",[](Side side) { return std::make_unique<MiniMaxPlayer2>(side); }}
+			{"minimax2",[](Side side) { return std::make_unique<MiniMaxPlayer2>(side); }},
+			{"minimax3",[](Side side) { return std::make_unique<MiniMaxPlayer3>(side); }}
 	};
 
 	auto command_line_params = parseCommandLineOptions(argc, argv, player_types);

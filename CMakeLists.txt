@@ -12,6 +12,7 @@ add_executable(reversi
     player/mini_max_player.cpp
     player/mini_max_player_1.cpp
     player/mini_max_player_2.cpp
+    player/mini_max_player_3.cpp
     option_parser.cpp)
 
 target_include_directories(reversi PRIVATE .)

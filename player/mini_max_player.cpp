@@ -337,11 +337,11 @@ void MiniMaxPlayer::initializeGamePhaseBoarder(){
 
 void MiniMaxPlayer::initializeWeights(){
     //{weighted squares, mobility, simple count}
-    weights[0] = {(float)1.0, (float)10, (float)0.0};
+    weights[0] = {(float)1.0, (float)6, (float)0.0};
     weights[1] = {(float)1.0, (float)8, (float)0.0};
-    weights[2] = {(float)1.0, (float)6, (float)0.0};
-    weights[3] = {(float)1.0, (float)6, (float)0.0};
-    weights[4] = {(float)1.0, (float)6, (float)5.0};
+    weights[2] = {(float)1.0, (float)10, (float)0.0};
+    weights[3] = {(float)1.0, (float)10, (float)0.0};
+    weights[4] = {(float)1.0, (float)10, (float)5.0};
 }
 
 void MiniMaxPlayer::setTurnNumber(int turn){
@@ -440,7 +440,7 @@ void MiniMaxPlayer::setMaxDepth(){
     }else if(getTurnNumber() > 7 && getTurnNumber() <=36){
         max_depth = 7;
     }else if(getTurnNumber() > 36){
-        max_depth = 7;
+        max_depth = 9;
     }
 }
 
