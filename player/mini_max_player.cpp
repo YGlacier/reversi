@@ -436,11 +436,11 @@ void MiniMaxPlayer::addEndSearchNodeCount(){
 
 void MiniMaxPlayer::setMaxDepth(){
     if(getTurnNumber() > 0 && getTurnNumber() <= 7){
-        max_depth = 9;
+        max_depth = 11;
     }else if(getTurnNumber() > 7 && getTurnNumber() <=36){
-        max_depth = 7;
-    }else if(getTurnNumber() > 36){
         max_depth = 9;
+    }else if(getTurnNumber() > 36){
+        max_depth = 11;
     }
 }
 
